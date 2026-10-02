@@ -1,4 +1,4 @@
-from security import decrypt_fernet
+from network import send_friend_request
 from util import read_all_contacts, write_contact_to_file
 
 
@@ -6,6 +6,7 @@ def add_contact():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")
     write_contact_to_file(name, email)
+    send_friend_request(name, email)
 
 def list_contact():
     contacts = read_all_contacts()
