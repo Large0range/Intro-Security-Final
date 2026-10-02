@@ -1,5 +1,6 @@
 import json
 import os
+from textwrap import indent
 
 import bcrypt
 
@@ -7,6 +8,7 @@ from security import hash_password, verify_password
 
 
 DATA_FILE = "user.json"
+CONTACT_FILE = "contacts.json"
 
 def user_exists():
     return os.path.isfile(DATA_FILE)
@@ -39,3 +41,10 @@ def login_user():
     password = input("Enter Password: ")
 
     return verify_password(password, data['password'].encode()) and email == data['email']
+
+
+def store_contact(name, email):
+    person = {"name": name, "email": email}
+
+    with open(CONTACT_FILE, "a") as file:
+        json.dump(person, file, indent=4)
