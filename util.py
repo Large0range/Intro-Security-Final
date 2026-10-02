@@ -1,10 +1,8 @@
 import json
 import os
-from textwrap import indent
-
 import bcrypt
+from security import decrypt_fernet, encrypt_fernet, hash_password, init_crypt, verify_password
 
-from security import hash_password, verify_password
 
 
 DATA_FILE = "user.json"
@@ -17,17 +15,20 @@ def register_user():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")
     password = hash_password(input("Enter Password: "))
-    reenter = bcrypt.checkpw(input("Re-enter Password: ").encode('utf-8'), password)
+    reenter = verify_password(input("Re-enter Password: "), password)
+
+    salt = os.urandom(16)
 
     if reenter:
         info = {
             'name': name,
             'email': email,
-            'password': password.decode()
+            'password': password.decode(),
+            'salt': salt.hex()
         }
 
         with open(DATA_FILE, "w") as file:
-            json.dump(info, file, indent=4)
+            json.dump(info, file)
 
         print("User Registered")
         print("Exiting Secure Drop")
@@ -39,12 +40,27 @@ def login_user():
 
     email = input("Enter Email Address: ")
     password = input("Enter Password: ")
+    salt = bytes.fromhex(data['salt'])
+
+    init_crypt(password.encode(), salt)
 
     return verify_password(password, data['password'].encode()) and email == data['email']
 
 
-def store_contact(name, email):
+def write_contact_to_file(name, email):
     person = {"name": name, "email": email}
 
-    with open(CONTACT_FILE, "a") as file:
-        json.dump(person, file, indent=4)
+    with open(CONTACT_FILE, "ab") as file:
+        file.write(encrypt_fernet(str(person))+b'\n')
+
+
+def read_all_contacts():
+    contacts = []
+    with open(CONTACT_FILE, "rb") as file:
+        for entry in file.read().split(b'\n'):
+            if entry == b'':
+                break
+
+            contacts.append(json.loads(decrypt_fernet(entry).decode().replace("\'", '\"')))
+
+    return contacts

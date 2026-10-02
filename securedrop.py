@@ -1,6 +1,5 @@
-from util import login_user, user_exists, register_user
 import sys
-
+from util import login_user, user_exists, register_user
 from command_functions import *
 
 logged_in = False
@@ -39,8 +38,17 @@ while logged_in:
     command = input(">")
 
     if command == "exit":
+        print("Exiting Secure Drop")
         logged_in = False
 
-    if command == "help":
+    elif command == "help":
         for i in commands:
             print(i + ":", commands[i][1])
+
+    else:
+        try:
+            commands[command][0]()
+        except KeyError:
+            print("Not a command")
+
+        print()
