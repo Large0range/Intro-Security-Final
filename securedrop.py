@@ -24,7 +24,7 @@ if user_exists():
 
         logged_in = True
     else:
-        print("what")
+        print("Invalid Login")
 else:
     print("No users registered for this client")
 
