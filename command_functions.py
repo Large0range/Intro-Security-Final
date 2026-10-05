@@ -1,22 +1,25 @@
+import json
+
 from network import send_friend_request
-from util import read_all_contacts, write_contact_to_file
+from state import FRIENDS
+from util import add_contact_to_dict
+
 
 
 def add_contact():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")
-    write_contact_to_file(name, email)
+    add_contact_to_dict(name, email)
     send_friend_request(name, email)
 
 def list_contact():
-    contacts = read_all_contacts()
-    if len(contacts) == 0:
+    if len(FRIENDS) == 0:
         print("No contacts found")
         return
 
-
-    for entry in contacts:
-        print(entry['name'])
+    for string_entry in FRIENDS:
+        entry = json.loads(string_entry)
+        print(entry['name'], "  ", entry['email'])
 
 def send_file():
     pass

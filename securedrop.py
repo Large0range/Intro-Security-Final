@@ -2,10 +2,10 @@
 
 import sys
 from network import startup_network
-from util import login_user, user_exists, register_user
+from util import login_user, read_all_contacts_from_file, user_exists, register_user, write_contacts_to_file
 from command_functions import *
 
-from state import logged_in
+from state import logged_in, USER_INFO
 
 
 network_threads = []
@@ -21,12 +21,12 @@ commands = {
     "exit": [lambda: 0, "Exits the Secure Drop Application"]
 }
 
-user_info = {}
-
 if user_exists():
-    if login_user(user_info):
+    if login_user(USER_INFO):
+        # on login setup
         logged_in.set()
-        startup_network(user_info, network_threads) # send out my payload
+        startup_network(USER_INFO, network_threads) # send out my payload
+        read_all_contacts_from_file()
 
         print("User logged in")
         print("Welcome to Secure Drop")
@@ -65,7 +65,7 @@ while logged_in.is_set():
 
 
 
+write_contacts_to_file()
+
 for thread in network_threads:
-    import faulthandler
-    faulthandler.dump_traceback_later(5, exit=True)
     thread.join()

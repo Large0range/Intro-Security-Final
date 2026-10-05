@@ -3,6 +3,7 @@ import os
 
 from cryptography.fernet import InvalidToken
 from security import decrypt_fernet, encrypt_fernet, hash_password, init_crypt, verify_password
+from state import ADDED_CONTACTS, FRIENDS
 
 
 
@@ -31,7 +32,7 @@ def register_user():
         }
 
         with open(DATA_FILE, "wb") as file:
-            file.write(encrypt_fernet(str(info)) + b'\n' + salt.hex().encode())
+            file.write(encrypt_fernet(json.dumps(info)) + b'\n' + salt.hex().encode())
 
         print("User Registered")
         print("Exiting Secure Drop")
@@ -64,26 +65,32 @@ def login_user(user_info):
     return verify_password(password, data['password'].encode()) and email == data['email']
 
 
-def write_contact_to_file(name, email):
+def add_contact_to_dict(name, email):
     person = {"name": name, "email": email}
 
-    with open(CONTACT_FILE, "ab") as file:
-        file.write(encrypt_fernet(str(person))+b'\n')
+    ADDED_CONTACTS.add(json.dumps(person))
+
+def write_contacts_to_file(): # RE VISIT
+    writelines = []
+    for contact in FRIENDS:
+        writelines.append(encrypt_fernet(contact) + b'\n')
+
+    with open(CONTACT_FILE, "wb") as file:
+        file.writelines(writelines)
+        #file.write(encrypt_fernet(json.dumps(person))+b'\n')
 
 
-def read_all_contacts():
-    contacts = []
+def read_all_contacts_from_file():
     if not os.path.isfile(CONTACT_FILE):
-        return contacts
+        return
 
     with open(CONTACT_FILE, "rb") as file:
         for entry in file.read().split(b'\n'):
             if entry == b'':
                 break
 
-            contacts.append(convert_byte_to_json(decrypt_fernet(entry)))
+            FRIENDS.add(decrypt_fernet(entry).decode())
 
-    return contacts
 
 
 def convert_byte_to_json(bytestring):

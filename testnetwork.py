@@ -59,7 +59,10 @@ def setup_server():
 
 
                     print(data)
-                    queue.put({'data': convert_byte_to_json(data), 'ip': addr})
+                    message = data.decode()
+                    type = int(message[:1])
+                    payload = message[1:]
+                    queue.put({'type': type, 'data': payload, 'ip': addr})
 
 
 def response_to_dms():
@@ -67,11 +70,11 @@ def response_to_dms():
         item = queue.get()
 
         print(item, "is online")
-        if run_client(item['data'], item['ip']):
+        if send_to_client(item['type'], whoami, item['ip']):
             queue.task_done()
 
 
-def run_client(item, ip):
+def send_to_client(type, payload, ip):
     # Define the server's IP address and port to connect to
     server_host = ip[0]  # 'localhost' for testing on the same machine
     server_port = 65432         # Must match the server's listening port
@@ -85,9 +88,8 @@ def run_client(item, ip):
             print(f"Connected successfully to {server_host}:{server_port}")
 
             # 3. Send data (Strings must be encoded to bytes)
-            message = "Hello, Server!"
-            client_socket.sendall(("IAM" + str(whoami)).encode('utf-8'))
-            print(f"Sent: {whoami}")
+            client_socket.sendall((str(type) + str(payload)).encode('utf-8'))
+            print(f"Sent: {payload}")
 
         except ConnectionRefusedError:
             print(f"Failed to connect. Is the server running on port {server_port}?")

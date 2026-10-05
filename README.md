@@ -57,3 +57,10 @@ Programmed in python 3.14
     
     Send large files efficiently, and keep them confidential and intact. Check that the file received matches the file sent before you report a successful transfer.
     Stop replay attacks with sequence numbers, seeded randomly on each client.
+
+
+
+
+Project Design:
+  - Each client has a server and a running client that responds to messages recieved by the server
+  - Network packets are sent as {PROTOCOL, REQUIRED_RESPOND, PAYLOAD} -- allows transmitting back and forth without infinite looping
