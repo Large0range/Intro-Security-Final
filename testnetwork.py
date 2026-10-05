@@ -1,19 +1,22 @@
+#!/usr/bin/env python3
+
 import json
 import socket
 from threading import Thread
+import queue as QUEUE
 
-
+queue = QUEUE.Queue()
 
 
 whoami = {
-    "name": "Boh Mingle",
+    "name": "Alexander Roy",
     "email": "root"
 }
 
 # Define host and port
 # '0.0.0.0' listens on all available network interfaces (local network + localhost)
 # Use '127.0.0.1' if you only want to allow connections from the same machine
-HOST = "0.0.0.0"
+HOST = "10.0.0.2"
 PORT = 65432  # Choose any non-privileged port (> 1023)
 
 IP_LOOKUP = {}
@@ -21,6 +24,8 @@ IP_LOOKUP = {}
 
 def convert_byte_to_json(bytestring):
     return json.loads(bytestring.decode().replace("\'", '\"'))
+
+
 
 
 # Create a TCP/IP socket
@@ -35,7 +40,7 @@ def setup_server():
         server_socket.bind((HOST, PORT))
 
         # Enable the server to accept connections
-        server_socket.listen(1)
+        server_socket.listen()
         print(f"Server is listening on {HOST}:{PORT}...")
 
         while True:
@@ -47,26 +52,28 @@ def setup_server():
                 print(f"Connected successfully to client: {addr}")
 
                 while True:
-                    # Receive data from the client (buffer size of 4096 bytes)
-                    data = conn.recv(4096)
-
-                    # If no data is received, the client has disconnected
-                    if not data:
-                        print(f"Client {addr} disconnected.")
+                    # I AM PROTOCOL
+                    data = conn.recv(1024)
+                    if data == b'':
                         break
 
-                    lookingfor = convert_byte_to_json(data)
-                    if lookingfor == whoami:
-                        print(whoami)
-                        conn.sendall("yes".encode())
-                    else:
-                        conn.sendall("no".encode())
+
+                    print(data)
+                    queue.put({'data': convert_byte_to_json(data), 'ip': addr})
 
 
+def response_to_dms():
+    while True:
+        item = queue.get()
 
-def run_client():
+        print(item, "is online")
+        if run_client(item['data'], item['ip']):
+            queue.task_done()
+
+
+def run_client(item, ip):
     # Define the server's IP address and port to connect to
-    server_host = '127.0.0.1'  # 'localhost' for testing on the same machine
+    server_host = ip[0]  # 'localhost' for testing on the same machine
     server_port = 65432         # Must match the server's listening port
 
     # 1. Create a socket object
@@ -79,31 +86,25 @@ def run_client():
 
             # 3. Send data (Strings must be encoded to bytes)
             message = "Hello, Server!"
-            client_socket.sendall(message.encode('utf-8'))
-            print(f"Sent: {message}")
-
-            # 4. Receive data from the server
-            # 1024 is the buffer size (max bytes to receive at once)
-            response_bytes = client_socket.recv(1024)
-            if response_bytes:
-                response_message = response_bytes.decode('utf-8')
-                print(f"Received from server: {response_message}")
-            else:
-                print("Server closed the connection.")
+            client_socket.sendall(("IAM" + str(whoami)).encode('utf-8'))
+            print(f"Sent: {whoami}")
 
         except ConnectionRefusedError:
             print(f"Failed to connect. Is the server running on port {server_port}?")
+            return False
         except Exception as e:
             print(f"An error occurred: {e}")
 
+    return True
 
-setup_server()
 
-#server = Thread(target=setup_server)
-#client = Thread(target=run_client)
+#setup_server()
 
-#server.start()
-#client.start()
+server = Thread(target=setup_server)
+client = Thread(target=response_to_dms)
 
-#server.join()
-#client.join()
+server.start()
+client.start()
+
+server.join()
+client.join()

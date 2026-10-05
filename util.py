@@ -37,7 +37,7 @@ def register_user():
         print("Exiting Secure Drop")
 
 
-def login_user():
+def login_user(user_info):
     with open(DATA_FILE, "rb") as file:
         a = file.read().split(b'\n')
         salt = a[1]
@@ -46,6 +46,7 @@ def login_user():
     password = input("Enter Password: ")
     salt = bytes.fromhex(salt)
 
+
     init_crypt(password.encode(), salt)
 
     try:
@@ -53,6 +54,12 @@ def login_user():
             data = convert_byte_to_json(decrypt_fernet(file.read().split(b'\n')[0]))
     except InvalidToken:
         return False
+
+
+
+    user_info['name'] = data['name']
+    user_info['email'] = data['email']
+
 
     return verify_password(password, data['password'].encode()) and email == data['email']
 
