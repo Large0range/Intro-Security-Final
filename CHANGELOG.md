@@ -1,6 +1,5 @@
 ToDo:
           - Need to encrypt the talking over a network modularly
-          - Need to check if person is online when listing contacts
 
 Changelog:
 	9/30/26 - Implemented simple user registration and pushed to github repository online

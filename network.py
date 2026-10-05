@@ -12,6 +12,7 @@ server_queue = queue.Queue()
 # PROTOCOL TYPES
 P_IAM = 1
 P_REQUEST = 2
+P_PING = 3
 
 P_RESPOND = 0
 P_NRESPOND = 1
@@ -26,20 +27,25 @@ SERVER_HOST = sys.argv[1]
 print(sys.argv[1], sys.argv[2])
 
 def send_friend_request(name, email):
-    connect_to_friend(name, email)
+    connect_to_friend(name, email, P_REQUEST, P_NRESPOND, USER_INFO)
 
 
+def check_online(name, email):
+    return connect_to_friend(name, email, P_PING, P_NRESPOND, {})
 
-#Fake Friend Protocol
-def connect_to_friend(name, email):
-    print(NAME_IP_TABLE)
+
+#Send to person based on name and email, with type, requiring response and final payload
+def connect_to_friend(name, email, type, respond_code, payload):
     try:
         if NAME_IP_TABLE[name]['email'] == email:
-            print("Correct Person, Sending Friend Request")
-            send_to_host(P_REQUEST, P_NRESPOND, USER_INFO, NAME_IP_TABLE[name]['ip'])
+            #print(f"Correct Person, Sending Type and Payload {type} {payload}")
+            return send_to_host(type, respond_code, payload, NAME_IP_TABLE[name]['ip'])
             #transmit_payload((str(P_REQUEST) + json.dumps(USER_INFO)).encode(), NAME_IP_TABLE[name]['ip'])
     except KeyError:
-        return
+        return False
+
+    return False
+
 
 
 
@@ -123,7 +129,7 @@ def respond_to_dms():
 
 
 def send_to_host(type: int, response: int, payload: dict, host: str):
-    transmit_payload((str(type)+str(response)+json.dumps(payload)).encode(), host)
+    return transmit_payload((str(type)+str(response)+json.dumps(payload)).encode(), host)
 
 def parse_bytes(bytestring: bytes):
     full_text = bytestring.decode()
@@ -151,9 +157,10 @@ def transmit_payload(info: bytes, host):
             client_socket.sendall(info)
 
         except ConnectionRefusedError:
-            print(f"Failed to connect. Is the server running on port {DEFAULT_SERVER_PORT}?")
-        except Exception as e:
-            print(f"An error occurred: {e}")
+            return False
+
+
+    return True
 
 
 #Send out we are online
