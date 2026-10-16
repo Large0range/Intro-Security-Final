@@ -62,5 +62,7 @@ Programmed in python 3.14
 
 
 Project Design:
+  - Fernet with SHA256 for basic encryption of information stored in project files(contacts, userinfo, etc) -- HMAC algorithm included
+  - Bcrypt for password authentication
   - Each client has a server and a running client that responds to messages recieved by the server
   - Network packets are sent as {PROTOCOL, REQUIRED_RESPOND, PAYLOAD} -- allows transmitting back and forth without infinite looping

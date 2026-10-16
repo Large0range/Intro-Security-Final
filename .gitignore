@@ -1,6 +1,7 @@
 __pycache__/
 bin/*
 lib/*
+demos/*
 lib64/*
 include/*
 lib64
