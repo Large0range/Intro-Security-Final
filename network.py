@@ -2,7 +2,6 @@ import json
 import os
 import socket
 import queue
-import struct
 import sys
 from threading import Thread
 import threading
@@ -181,9 +180,8 @@ def text_me_back_protocol():
                     # pull all sent data from the socket
                     data = b""
                     pull = conn.recv(4)
-                    print(len(pull))
                     if len(pull) == 4:
-                        length = struct.unpack("!I", pull)[0]
+                        length = int.from_bytes(pull, 'little')
                         data = conn.recv(length)
                     # data += pull
 
@@ -371,7 +369,7 @@ def transmit_payload(info: bytes, host: str):
         try:
             client_socket.connect((server_host, DEFAULT_SERVER_PORT))
 
-            client_socket.sendall(struct.pack("!I", len(info)))
+            client_socket.sendall(len(info).to_bytes(4, 'little'))
 
             client_socket.sendall(info)
 
