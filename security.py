@@ -84,6 +84,20 @@ import os
 
 from Crypto.Signature import pkcs1_15
 
+RSA_KEY_FILE = "rsa.pem"
+
+#####################################
+# Grabs the RSA public and private keys from file
+# Returns:
+#   public key      - bytes
+#   private key     - bytes
+#####################################
+def read_keys_from_file() -> tuple[bytes, bytes]:
+    with open(RSA_KEY_FILE, "rb") as file:
+        priv_key = RSA.import_key(file.read())
+        pub_key = priv_key.public_key()
+
+    return priv_key.export_key(), pub_key.export_key()
 
 
 #####################################
@@ -96,7 +110,10 @@ def generate_rsa_keys() -> tuple[bytes, bytes]:
     priv_key = RSA.generate(4096)
     pub_key = priv_key.public_key()
 
-    return priv_key.exportKey(), pub_key.exportKey()
+    with open(RSA_KEY_FILE, "wb") as file:
+        file.write(priv_key.export_key())
+
+    return priv_key.export_key(), pub_key.export_key()
 
 
 #########################################################
@@ -108,8 +125,7 @@ def generate_rsa_keys() -> tuple[bytes, bytes]:
 #   tag                   - 16 bytes
 #   ciphertext            - Unknown bytes
 #########################################################
-def encrypt_generate_aes_secrets(rsa_pub_key: bytes, data: bytes) -> tuple[bytes, bytes, bytes, bytes]:
-    recipient_key = rsa_pub_key
+def encrypt_generate_aes_secrets(rsa_pub_key: bytes, data: bytes) -> tuple[bytes, bytes, bytes, bytes, bytes]:
     session_key = get_random_bytes(16)
 
     # Encrypt the session key with the public RSA key
@@ -122,7 +138,7 @@ def encrypt_generate_aes_secrets(rsa_pub_key: bytes, data: bytes) -> tuple[bytes
     cipher_aes = AES.new(session_key, AES.MODE_EAX)
     ciphertext, tag = cipher_aes.encrypt_and_digest(data)
 
-    return enc_session_key, cipher_aes.nonce, tag, ciphertext
+    return enc_session_key, cipher_aes.nonce, tag, ciphertext, session_key
 
 
 
@@ -184,7 +200,7 @@ def sign_message(priv_key, data) -> tuple[bytes, bytes]:
 #   - True  if signature is valid
 #   - False if not
 #######################################################
-def verify_signature(pub_key, message, h, signature) -> bool:
+def verify_signature(pub_key: bytes, message: bytes, signature: bytes) -> bool:
     key = RSA.import_key(pub_key)
 
     h = SHA3_512.new(message)

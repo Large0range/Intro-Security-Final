@@ -1,5 +1,7 @@
 ToDo:
-          - Need to encrypt the talking over a network modularly
+              - Authing added, create user table with key and IP
+              - Encrypt and send files
+              - Celebrate finished final project
 
 Changelog:
   9/30/26     - Implemented simple user registration and pushed to github repository online
@@ -11,3 +13,4 @@ Changelog:
     					- Transmits and sends informational data about person at IP
     					- Implemented ability to add friends and list contacts
   10/15/26    - Added entire network security RSA AES Signature Handshaking framework
+  10/17/26    - Implemented handshaking into codebase, full user authentication

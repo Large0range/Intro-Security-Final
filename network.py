@@ -1,13 +1,19 @@
 import json
+import os
 import socket
 import queue
 import sys
 from threading import Thread
+import threading
 
+from Crypto.PublicKey import RSA
+
+from security import decrypt_aes, decrypt_aes_secrets_verify, encrypt_aes, encrypt_generate_aes_secrets, generate_rsa_keys, read_keys_from_file, sign_message, verify_signature
 from state import ADDED_CONTACTS, FRIENDS, USER_INFO, logged_in
 
 # Create shared queue per listener and sender threads
 server_queue = queue.Queue()
+RSA_PRIV = b""
 
 # PROTOCOL TYPES
 # Protocol for telling who person is
@@ -18,6 +24,13 @@ P_REQUEST = 2
 
 # Protocol for checking if person is online
 P_PING = 3
+
+#Handshake Protocol
+P_HANDS = 4
+
+#Key Protocol
+P_MYKEY = 5
+P_OURAES = 6
 
 # RESPONSE CODES
 # Require response for protocol
@@ -30,7 +43,10 @@ P_NRESPOND = 0
 DEFAULT_SERVER_PORT = 65432
 
 # Lookup dictionary for name to email and ip
+table_lock = threading.Lock()
+
 NAME_IP_TABLE = {}
+IP_KEY_TABLE = {}
 
 #########################################################################
 # REMOVE IN IMPLEMENTATION
@@ -110,15 +126,26 @@ def text_me_back_protocol():
             with conn:
                 # loop infinitely to talk as much as we need
                 while True:
-                    # get data from
-                    data = conn.recv(1024)
+                    # pull all sent data from the socket
+                    pull = b""
+                    data = b""
+                    pull = conn.recv(1024)
+                    data += pull
+
+                    while len(pull) == 1024:
+                        pull = conn.recv(1024)
+                        data += pull
 
                     # break if connection terminated
                     if data == b'':
                         break
 
                     # parse the data received into protocol type, response code, and payload associated
-                    type, response, payload = parse_bytes(data)
+                    try:
+                        type, response, payload = parse_bytes(data)
+                    except UnicodeDecodeError:
+                        dec = decrypt_aes(IP_KEY_TABLE[addr[0]][1], data)
+                        type, response, payload = parse_bytes(dec)
 
                     #################################################
                     # REMOVE IN IMPLEMENTATION
@@ -129,7 +156,15 @@ def text_me_back_protocol():
 
                     # Store person in Name IP Table if they are telling us who they are
                     if type == P_IAM:
+                        # Single key replacement atomic
                         NAME_IP_TABLE[payload['name']] = {'email': payload['email'], 'ip': addr[0]}
+
+                    if type == P_MYKEY:
+                        with table_lock:
+                            IP_KEY_TABLE.setdefault(addr[0], [bytes.fromhex(payload['key']), None])
+                            if IP_KEY_TABLE[addr[0]][0] == None:
+                                IP_KEY_TABLE[addr[0]][0] = bytes.fromhex(payload['key'])
+
 
                     # If person sent us a friend request check if we have them in our friends
                     # -- Required to send back proper message
@@ -192,6 +227,45 @@ def respond_to_dms():
         if item['type'] == P_REQUEST:
             send_to_host(P_REQUEST, P_NRESPOND, USER_INFO, item['ip'])
 
+
+        if item['type'] == P_MYKEY:
+            with table_lock:
+                rsa_pub = IP_KEY_TABLE[item['ip']][0]
+
+            session_key, nonce, tag, cipher_text, real_key = encrypt_generate_aes_secrets(rsa_pub, str(USER_INFO).encode())
+
+            IP_KEY_TABLE[item['ip']][1] = real_key
+
+            send_to_host(P_OURAES, P_RESPOND, {'session_key': session_key.hex(), 'nonce': nonce.hex(), 'tag': tag.hex(), 'ciphertext': cipher_text.hex()}, item['ip'])
+
+
+        if item['type'] == P_OURAES:
+            payload = item['data']
+
+            plaintext, aes_key = decrypt_aes_secrets_verify(RSA_PRIV, bytes.fromhex(payload['session_key']), bytes.fromhex(payload['nonce']), bytes.fromhex(payload['tag']), bytes.fromhex(payload['ciphertext']))
+            with table_lock:
+                IP_KEY_TABLE.setdefault(item['ip'], [None, aes_key])
+                if IP_KEY_TABLE[item['ip']][1] == None:
+                    IP_KEY_TABLE[item['ip']][1] = aes_key
+
+            _, signature = sign_message(RSA_PRIV, plaintext)
+
+            send_to_host(P_HANDS, P_RESPOND, {'signature': signature.hex()}, item['ip'])
+
+
+        if item['type'] == P_HANDS:
+            payload = item['data']
+            verified = verify_signature(IP_KEY_TABLE[item['ip']][0], str(USER_INFO).encode(), bytes.fromhex(payload['signature']))
+            if verified:
+                print("verification done person authed")
+                send_to_host_encrypted(P_PING, P_RESPOND, {'data': 'hello'}, item['ip'])
+            else:
+                print("could not verify hash")
+
+
+        if item['type'] == P_PING:
+            send_to_host_encrypted(P_PING, P_NRESPOND, {'data': 'hello back'}, item['ip'])
+
         # Mark queue item as finished
         server_queue.task_done()
 
@@ -202,6 +276,10 @@ def respond_to_dms():
 #################################################
 def send_to_host(type: int, response: int, payload: dict, host: str) -> bool:
     return transmit_payload((str(type)+str(response)+json.dumps(payload)).encode(), host)
+
+def send_to_host_encrypted(type: int, response: int, payload: dict, host: str) -> bool:
+    enc_data = encrypt_aes(IP_KEY_TABLE[host][1], (str(type)+str(response)+json.dumps(payload)).encode())
+    return transmit_payload(enc_data, host)
 
 ################################################
 # Parse received bytes in listener
@@ -219,13 +297,14 @@ def parse_bytes(bytestring: bytes):
 
     return type, response, payload
 
-#######################################
+############################################
 # Send information to host
 # Takes data to transmit        - bytes
 # Takes host                    - string
 # Returns:
 #   True on successful transmission
 #   False on connection refused
+############################################
 def transmit_payload(info: bytes, host: str):
     # Define the server's IP address and port to connect to
     server_host = host
@@ -243,22 +322,34 @@ def transmit_payload(info: bytes, host: str):
 
     return True
 
-
 #############################################################
 # Startup the network threads and tell people we are online
 # Takes user information            - dict
 # Takes reference to thread list    - list
 #############################################################
 def startup_network(info, network_threads):
+    global RSA_PRIV
+
+    #I AM PROTOCOL
+    if os.path.isfile("rsa.pem"):
+        print("Grabbing One Way Keys")
+        priv, pub = read_keys_from_file()
+    else:
+        print("Generating One Way Keys")
+        priv, pub = generate_rsa_keys()
+
+    RSA_PRIV = priv
+
+    print("Keys Grabbed")
+
     server_thread = Thread(target=text_me_back_protocol)
     response_thread = Thread(target=respond_to_dms)
 
     server_thread.start()
     response_thread.start()
 
-    #I AM PROTOCOL
     for ip in IPS:
-        send_to_host(P_IAM, P_RESPOND, info, ip)
+        send_to_host(P_MYKEY, P_RESPOND, {"key": pub.hex()}, ip)
 
     network_threads.append(server_thread)
     network_threads.append(response_thread)

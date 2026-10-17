@@ -6,3 +6,4 @@ lib64/*
 include/*
 lib64
 *.bin
+*.pem
