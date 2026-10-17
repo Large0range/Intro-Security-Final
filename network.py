@@ -179,11 +179,12 @@ def text_me_back_protocol():
                 # loop infinitely to talk as much as we need
                 while True:
                     # pull all sent data from the socket
-                    pull = b""
                     data = b""
-
-                    length = struct.unpack("!I", conn.recv(4))[0]
-                    data = conn.recv(length)
+                    pull = conn.recv(4)
+                    print(len(pull))
+                    if len(pull) == 4:
+                        length = struct.unpack("!I", pull)[0]
+                        data = conn.recv(length)
                     # data += pull
 
                     # while len(pull) == 1024:
