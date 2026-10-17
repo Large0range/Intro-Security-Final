@@ -118,8 +118,8 @@ def check_online(name, email):
 def connect_to_user(name, email, type, respond_code, payload):
     try:
         # if name and email match then send payload -- prevents sending to wrong person with same name
-        if NAME_IP_TABLE[name]['email'] == email:
-            return send_to_host(type, respond_code, payload, NAME_IP_TABLE[name]['ip'])
+        if name + ':' + email in NAME_IP_TABLE:
+            return send_to_host(type, respond_code, payload, NAME_IP_TABLE[name + ':' + email])
     except KeyError:
         return False
 
@@ -137,8 +137,8 @@ def connect_to_user(name, email, type, respond_code, payload):
 def connect_to_friend(name, email, type, respond_code, payload):
     try:
         # if name and email match then send payload -- prevents sending to wrong person with same name
-        if NAME_IP_TABLE[name]['email'] == email and json.dumps({'name': name, 'email': email}) in FRIENDS:
-            return send_to_host_encrypted(type, respond_code, payload, NAME_IP_TABLE[name]['ip'])
+        if name + ':' + email in NAME_IP_TABLE and json.dumps({'name': name, 'email': email}) in FRIENDS:
+            return send_to_host_encrypted(type, respond_code, payload, NAME_IP_TABLE[name + ':' + email])
     except KeyError:
         return False
 
@@ -207,7 +207,7 @@ def text_me_back_protocol():
                     # Store person in Name IP Table if they are telling us who they are
                     if type == P_IAM:
                         # Single key replacement atomic
-                        NAME_IP_TABLE[payload['name']] = {'email': payload['email'], 'ip': addr[0]}
+                        NAME_IP_TABLE[payload['name'] + ':' + payload['email']] = addr[0]
 
                     if type == P_MYKEY:
                         if VERSION != payload['version']:
