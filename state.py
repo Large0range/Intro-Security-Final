@@ -4,6 +4,8 @@ import zlib
 logged_in = threading.Event();
 logged_in.clear()
 
+VERSION = 1.16
+
 USER_INFO = {}
 ADDED_CONTACTS = set()
 

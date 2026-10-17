@@ -83,14 +83,15 @@ def send_message(name, email, message):
 # Tells other user we have added them and gives our user info
 ##########################
 def send_file(name, email, file_path):
+    output_to_console("Sending file...", DIM)
     if not os.path.isfile(file_path):
         output_to_console("Unable to Message User", RED + BOLD)
         return
 
-    with open(file_path, "r") as file:
+    with open(file_path, "rb") as file:
         data = file.read()
-    if connect_to_friend(name, email, P_FILE, P_NRESPOND, {'name': USER_INFO['name'], 'email': USER_INFO['email'], 'file_path': file_path, 'data': data}):
-        output_to_console("Sending file...", DIM)
+    if connect_to_friend(name, email, P_FILE, P_NRESPOND, {'name': USER_INFO['name'], 'email': USER_INFO['email'], 'file_path': file_path, 'data': zlib.compress(data, level=9).hex()}):
+        output_to_console("File sent", DIM)
     else:
         output_to_console("Unable to Message User", RED + BOLD)
 
@@ -208,6 +209,8 @@ def text_me_back_protocol():
                         NAME_IP_TABLE[payload['name']] = {'email': payload['email'], 'ip': addr[0]}
 
                     if type == P_MYKEY:
+                        if VERSION != payload['version']:
+                            raise ValueError("Non matching versions... try updating to latest")
                         with table_lock:
                             IP_KEY_TABLE.setdefault(addr[0], [bytes.fromhex(payload['key']), None])
                             if IP_KEY_TABLE[addr[0]][0] == None:
@@ -243,8 +246,10 @@ def text_me_back_protocol():
 
                     # File sending protocol
                     if type == P_FILE:
+                        bytedata = bytes.fromhex(payload['data'])
+                        uncompressed = zlib.decompress(bytedata).decode()
                         with open(payload['file_path'], "w") as file:
-                            file.write(payload['data'])
+                            file.write(uncompressed)
 
                     # if response code is 1 then response
                     if response == P_RESPOND:
@@ -406,7 +411,7 @@ def startup_network(info, network_threads):
     response_thread.start()
 
     for ip in IPS:
-        send_to_host(P_MYKEY, P_RESPOND, {"key": pub.hex()}, ip)
+        send_to_host(P_MYKEY, P_RESPOND, {"version": VERSION, "key": pub.hex()}, ip)
 
     network_threads.append(server_thread)
     network_threads.append(response_thread)
