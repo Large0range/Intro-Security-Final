@@ -85,7 +85,7 @@ def send_message(name, email, message):
 def send_file(name, email, file_path):
     output_to_console("Sending file...", DIM)
     if not os.path.isfile(file_path):
-        output_to_console("Unable to Message User", RED + BOLD)
+        output_to_console("No file found", RED + BOLD)
         return
 
     with open(file_path, "rb") as file:
