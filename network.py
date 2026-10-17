@@ -2,6 +2,7 @@ import json
 import os
 import socket
 import queue
+import struct
 import sys
 from threading import Thread
 import threading
@@ -180,12 +181,14 @@ def text_me_back_protocol():
                     # pull all sent data from the socket
                     pull = b""
                     data = b""
-                    pull = conn.recv(1024)
-                    data += pull
 
-                    while len(pull) == 1024:
-                        pull = conn.recv(1024)
-                        data += pull
+                    length = struct.unpack("!I", conn.recv(4))[0]
+                    data = conn.recv(length)
+                    # data += pull
+
+                    # while len(pull) == 1024:
+                    #     pull = conn.recv(1024)
+                    #     data += pull
 
                     # break if connection terminated
                     if data == b'':
@@ -366,6 +369,8 @@ def transmit_payload(info: bytes, host: str):
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         try:
             client_socket.connect((server_host, DEFAULT_SERVER_PORT))
+
+            client_socket.sendall(struct.pack("!I", len(info)))
 
             client_socket.sendall(info)
 
