@@ -3,6 +3,7 @@
 install: requirements.txt
 	python -m venv .venv --without-scm-ignore-files
 	.venv/bin/pip install -r requirements.txt
+	@echo "run .venv/bin/activate to start venv"
 
 clean:
 	rm *.bin
