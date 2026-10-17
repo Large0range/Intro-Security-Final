@@ -14,10 +14,10 @@ def test():
     print("hello")
 
 commands = {
-    "test": [test, "This is a test command for scalability"],
     "add": [add_contact, "Adds a new contact to your contact list"],
     "list": [list_contact, "Lists your stored contacts"],
-    "send": [send_file, "Sends a file to a contact"],
+    "send": [send_file_contact, "Sends a file to a contact"],
+    "message": [message_contact, "Messages a friend"],
     "exit": [lambda: 0, "Exits the Secure Drop Application"]
 }
 

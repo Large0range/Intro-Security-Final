@@ -1,7 +1,7 @@
 import json
 
-from network import check_online, send_friend_request
-from state import FRIENDS
+from network import check_online, send_file, send_friend_request, send_message
+from state import DIM, FRIENDS, color, name_color
 from util import add_contact_to_dict
 
 
@@ -34,7 +34,7 @@ def list_contact():
     for string_entry in FRIENDS:
         entry = json.loads(string_entry)
         if check_online(entry['name'], entry['email']):
-            print(f"  {entry['name']:<10}  {entry['email']:<20} { "* Online" if check_online(entry['name'], entry['email']) else "* Offline" }")
+            print(f"  {color(f'{entry['name']:<10}', name_color(entry['name'], entry['email']))}  {color(f'{entry['email']:<20}', DIM)} { "* Online" if check_online(entry['name'], entry['email']) else "* Offline" }")
             foundone = True         # at least one person is online, set to true - we don't need formatting fix
 
     # If we have contacts in friends but they are not online
@@ -42,5 +42,21 @@ def list_contact():
     if not foundone:
         print("  No online contacts")
 
-def send_file():
-    pass
+
+###########################################
+# Prompts user for information
+# Appends to people added by this user
+# Sends request for connection to contact
+# #########################################
+def message_contact():
+    name = input("Enter Full Name: ")
+    email = input("Enter Email Address: ")
+    message = input("Enter Message: ")
+    send_message(name, email, message)
+
+
+def send_file_contact():
+    name = input("Enter Full Name: ")
+    email = input("Enter Email Address: ")
+    file_name = input("Enter File Path: ")
+    send_file(name, email, file_name)

@@ -14,3 +14,4 @@ Changelog:
     					- Implemented ability to add friends and list contacts
   10/15/26    - Added entire network security RSA AES Signature Handshaking framework
   10/17/26    - Implemented handshaking into codebase, full user authentication
+              - Finished all implementations

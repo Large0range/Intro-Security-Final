@@ -9,7 +9,8 @@ import threading
 from Crypto.PublicKey import RSA
 
 from security import decrypt_aes, decrypt_aes_secrets_verify, encrypt_aes, encrypt_generate_aes_secrets, generate_rsa_keys, read_keys_from_file, sign_message, verify_signature
-from state import ADDED_CONTACTS, FRIENDS, USER_INFO, logged_in
+from state import *
+
 
 # Create shared queue per listener and sender threads
 server_queue = queue.Queue()
@@ -24,6 +25,12 @@ P_REQUEST = 2
 
 # Protocol for checking if person is online
 P_PING = 3
+
+# Message protocol -- not required but fun
+P_MESSAGE = 7
+
+# File protcol
+P_FILE = 8
 
 #Handshake Protocol
 P_HANDS = 4
@@ -61,7 +68,32 @@ print(sys.argv[1], sys.argv[2])
 # Tells other user we have added them and gives our user info
 ##########################
 def send_friend_request(name, email):
-    connect_to_friend(name, email, P_REQUEST, P_NRESPOND, USER_INFO)
+    connect_to_user(name, email, P_REQUEST, P_NRESPOND, USER_INFO)
+
+##########################
+# Takes other user's name and email
+# Messages our friend securely
+##########################
+def send_message(name, email, message):
+    if not connect_to_friend(name, email, P_MESSAGE, P_NRESPOND, {'name': USER_INFO['name'], 'email': USER_INFO['email'], 'data': message}):
+        output_to_console("Unable to Message User", RED + BOLD)
+
+##########################
+# Takes other user's name and email
+# Tells other user we have added them and gives our user info
+##########################
+def send_file(name, email, file_path):
+    if not os.path.isfile(file_path):
+        output_to_console("Unable to Message User", RED + BOLD)
+        return
+
+    with open(file_path, "r") as file:
+        data = file.read()
+    if connect_to_friend(name, email, P_FILE, P_NRESPOND, {'name': USER_INFO['name'], 'email': USER_INFO['email'], 'file_path': file_path, 'data': data}):
+        output_to_console("Sending file...", DIM)
+    else:
+        output_to_console("Unable to Message User", RED + BOLD)
+
 
 
 ##########################
@@ -70,7 +102,7 @@ def send_friend_request(name, email):
 # -- Only happens if two are friends
 #########################
 def check_online(name, email):
-    return connect_to_friend(name, email, P_PING, P_NRESPOND, {})
+    return connect_to_user(name, email, P_PING, P_NRESPOND, {})
 
 
 ####################################################################
@@ -81,11 +113,30 @@ def check_online(name, email):
 #   True on proper send and lookup in IP Table
 #   False if send was incorrect or name not in IP Table
 ####################################################################
-def connect_to_friend(name, email, type, respond_code, payload):
+def connect_to_user(name, email, type, respond_code, payload):
     try:
         # if name and email match then send payload -- prevents sending to wrong person with same name
         if NAME_IP_TABLE[name]['email'] == email:
             return send_to_host(type, respond_code, payload, NAME_IP_TABLE[name]['ip'])
+    except KeyError:
+        return False
+
+    return False
+
+
+####################################################################
+# Takes other user's name and email --- explicit check if in friends
+# Takes protocl type and response code
+# Takes payload to send to other user
+# Returns:
+#   True on proper send and lookup in IP Table
+#   False if send was incorrect or name not in IP Table
+####################################################################
+def connect_to_friend(name, email, type, respond_code, payload):
+    try:
+        # if name and email match then send payload -- prevents sending to wrong person with same name
+        if NAME_IP_TABLE[name]['email'] == email and json.dumps({'name': name, 'email': email}) in FRIENDS:
+            return send_to_host_encrypted(type, respond_code, payload, NAME_IP_TABLE[name]['ip'])
     except KeyError:
         return False
 
@@ -147,11 +198,6 @@ def text_me_back_protocol():
                         dec = decrypt_aes(IP_KEY_TABLE[addr[0]][1], data)
                         type, response, payload = parse_bytes(dec)
 
-                    #################################################
-                    # REMOVE IN IMPLEMENTATION
-                    print("Recieved", type, response, payload)
-                    #################################################
-
                     # Special Protocol Types Require Server Action
 
                     # Store person in Name IP Table if they are telling us who they are
@@ -183,20 +229,24 @@ def text_me_back_protocol():
                                 # Inform them that we have also added them back
                                 server_queue.put({'type': P_REQUEST, 'data': payload, 'ip': addr[0]})
 
-                            #################################################
-                            # REMOVE IN IMPLEMENTATION
-                            print("listed contact", contact)
-                            #################################################
-
                         # if there was someone added remove them from added contacts
                         if r_contact != "":
                             ADDED_CONTACTS.remove(r_contact)
 
+                    # Message protocol from friend
+                    if type == P_MESSAGE:
+                        print(f"{color(payload['name'], BOLD + name_color(payload['name'], payload['email']))} {color('<' + payload['email'] + '>', DIM)}")
+                        print("  " + payload['data'])
+                        print(">", end="", flush=True)
+
+                    # File sending protocol
+                    if type == P_FILE:
+                        with open(payload['file_path'], "w") as file:
+                            file.write(payload['data'])
 
                     # if response code is 1 then response
                     if response == P_RESPOND:
                         server_queue.put({'type': type, 'data': payload, 'ip': addr[0]})
-
 
 
 ####################################
@@ -218,16 +268,15 @@ def respond_to_dms():
         # If we need to tell person who we are
         # -- Send with no response and payload of user info
         if item['type'] == P_IAM:
-            #transmit_payload((str(P_IAM) + json.dumps(USER_INFO)).encode(), item['ip'])
-            send_to_host(P_IAM, P_NRESPOND, USER_INFO, item['ip'])
+            send_to_host_encrypted(P_IAM, P_NRESPOND, USER_INFO, item['ip'])
 
-        # if we need to confirm add back of friend request
+        # If we need to confirm add back of friend request
         # -- Send with no response and payload of user info
         # !- Separated from P_IAM for semantics and readability
         if item['type'] == P_REQUEST:
-            send_to_host(P_REQUEST, P_NRESPOND, USER_INFO, item['ip'])
+            send_to_host_encrypted(P_REQUEST, P_NRESPOND, USER_INFO, item['ip'])
 
-
+        # If we recieved the public key then encrypt and send them aes key
         if item['type'] == P_MYKEY:
             with table_lock:
                 rsa_pub = IP_KEY_TABLE[item['ip']][0]
@@ -238,7 +287,9 @@ def respond_to_dms():
 
             send_to_host(P_OURAES, P_RESPOND, {'session_key': session_key.hex(), 'nonce': nonce.hex(), 'tag': tag.hex(), 'ciphertext': cipher_text.hex()}, item['ip'])
 
-
+        # If we have recieved an AES key then decrypt with our RSA priv
+        # Process data then send signature to authenticate who we are
+        # -- Auth can be used at any time to double check
         if item['type'] == P_OURAES:
             payload = item['data']
 
@@ -253,18 +304,15 @@ def respond_to_dms():
             send_to_host(P_HANDS, P_RESPOND, {'signature': signature.hex()}, item['ip'])
 
 
+        # Final process of the handshake, we need to authenticate they are the person
+        # Auth them, tell them who we are definitively. Tunnel created between
         if item['type'] == P_HANDS:
             payload = item['data']
             verified = verify_signature(IP_KEY_TABLE[item['ip']][0], str(USER_INFO).encode(), bytes.fromhex(payload['signature']))
             if verified:
-                print("verification done person authed")
-                send_to_host_encrypted(P_PING, P_RESPOND, {'data': 'hello'}, item['ip'])
+                send_to_host_encrypted(P_IAM, P_RESPOND, USER_INFO, item['ip'])
             else:
-                print("could not verify hash")
-
-
-        if item['type'] == P_PING:
-            send_to_host_encrypted(P_PING, P_NRESPOND, {'data': 'hello back'}, item['ip'])
+                output_to_console("Could Not Verify Hash", RED + BOLD)
 
         # Mark queue item as finished
         server_queue.task_done()
@@ -277,6 +325,11 @@ def respond_to_dms():
 def send_to_host(type: int, response: int, payload: dict, host: str) -> bool:
     return transmit_payload((str(type)+str(response)+json.dumps(payload)).encode(), host)
 
+#################################################
+# Sends payload to host encrypted
+# Takes protocol type, response, payload, and host
+# Returns True on successful transmission
+#################################################
 def send_to_host_encrypted(type: int, response: int, payload: dict, host: str) -> bool:
     enc_data = encrypt_aes(IP_KEY_TABLE[host][1], (str(type)+str(response)+json.dumps(payload)).encode())
     return transmit_payload(enc_data, host)
