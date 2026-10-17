@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 import socket
 import queue
 import sys
@@ -70,18 +71,18 @@ print(sys.argv[1], sys.argv[2])
 def send_friend_request(name, email):
     connect_to_user(name, email, P_REQUEST, P_NRESPOND, USER_INFO)
 
-##########################
-# Takes other user's name and email
+####################################################
+# Takes other user's name and email and message
 # Messages our friend securely
-##########################
+####################################################
 def send_message(name, email, message):
     if not connect_to_friend(name, email, P_MESSAGE, P_NRESPOND, {'name': USER_INFO['name'], 'email': USER_INFO['email'], 'data': message}):
         output_to_console("Unable to Message User", RED + BOLD)
 
-##########################
-# Takes other user's name and email
-# Tells other user we have added them and gives our user info
-##########################
+####################################################
+# Takes other user's name and email and file path
+# Sends file to user's computer
+####################################################
 def send_file(name, email, file_path):
     output_to_console("Sending file...", DIM)
     if not os.path.isfile(file_path):
@@ -97,11 +98,11 @@ def send_file(name, email, file_path):
 
 
 
-##########################
+####################################################
 # Takes other user's name and email
 # Pings other user to see if their server is online
 # -- Only happens if two are friends
-#########################
+####################################################
 def check_online(name, email):
     return connect_to_user(name, email, P_PING, P_NRESPOND, {})
 
@@ -246,9 +247,13 @@ def text_me_back_protocol():
 
                     # File sending protocol
                     if type == P_FILE:
+                        # Decompress the bytes from the payload
                         bytedata = bytes.fromhex(payload['data'])
                         uncompressed = zlib.decompress(bytedata).decode()
-                        with open(payload['file_path'], "w") as file:
+
+                        # Gut the file path, only write to Data folder
+                        full_path = Path(payload['file_path'])
+                        with open('Data/' + full_path.name, "w") as file:
                             file.write(uncompressed)
 
                     # if response code is 1 then response
@@ -256,9 +261,9 @@ def text_me_back_protocol():
                         server_queue.put({'type': type, 'data': payload, 'ip': addr[0]})
 
 
-####################################
+######################################################################
 # Startup a continuous thread to service items in the shared queue
-####################################
+######################################################################
 def respond_to_dms():
     # wait till we are logged in
     logged_in.wait()
@@ -324,19 +329,19 @@ def respond_to_dms():
         # Mark queue item as finished
         server_queue.task_done()
 
-#################################################
+###########################################################
 # Sends payload to host
 # Takes protocol type, response, payload, and host
 # Returns True on successful transmission
-#################################################
+###########################################################
 def send_to_host(type: int, response: int, payload: dict, host: str) -> bool:
     return transmit_payload((str(type)+str(response)+json.dumps(payload)).encode(), host)
 
-#################################################
-# Sends payload to host encrypted
+###########################################################
+# Sends payload encrypted to host
 # Takes protocol type, response, payload, and host
 # Returns True on successful transmission
-#################################################
+###########################################################
 def send_to_host_encrypted(type: int, response: int, payload: dict, host: str) -> bool:
     enc_data = encrypt_aes(IP_KEY_TABLE[host][1], (str(type)+str(response)+json.dumps(payload)).encode())
     return transmit_payload(enc_data, host)

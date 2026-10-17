@@ -9,7 +9,7 @@ from util import add_contact_to_dict
 # Prompts user for information
 # Appends to people added by this user
 # Sends request for connection to contact
-# #########################################
+###########################################
 def add_contact():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")
@@ -19,8 +19,9 @@ def add_contact():
 
 
 ##########################################
-# Lists contacts that have added the user back, and are online
-# ########################################
+# Lists contacts that have added the user back
+# -- and are online
+##########################################
 def list_contact():
     if len(FRIENDS) == 0:
         print("No contacts found")
@@ -38,16 +39,15 @@ def list_contact():
             foundone = True         # at least one person is online, set to true - we don't need formatting fix
 
     # If we have contacts in friends but they are not online
-    #   Avoids weird print formatting issues
+    # Avoids weird print formatting issues
     if not foundone:
         print("  No online contacts")
 
 
 ###########################################
 # Prompts user for information
-# Appends to people added by this user
-# Sends request for connection to contact
-# #########################################
+# Messages user if they are on friends list
+###########################################
 def message_contact():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")
@@ -55,6 +55,10 @@ def message_contact():
     send_message(name, email, message)
 
 
+###########################################
+# Sends file to contact
+# Prompts for name, email, and file path
+###########################################
 def send_file_contact():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")

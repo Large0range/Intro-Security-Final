@@ -18,6 +18,9 @@ from Crypto.Signature import pkcs1_15
 _fernet = None
 _kdf = None
 
+#########################
+# WRAPPER
+#########################
 def requires_fernet(func):
     @wraps(func)
     def wrapper(*args, **kwargs):
@@ -27,6 +30,10 @@ def requires_fernet(func):
     return wrapper
 
 
+#####################################################
+# Takes a plaintext password
+# Hashes the password with salt and gives it back
+#####################################################
 def hash_password(plain_password):
     # Convert string password to bytes
     password_bytes = plain_password.encode('utf-8')
@@ -39,12 +46,21 @@ def hash_password(plain_password):
     return hashed_password
 
 
+#####################################################
+# Verify the plain text password that was given
+# Compares against the stored hash in constant time
+#####################################################
 def verify_password(plain_password, stored_hash):
     password_bytes = plain_password.encode('utf-8')
 
     # Check if the password matches the hash
     return bcrypt.checkpw(password_bytes, stored_hash)
 
+
+
+####################################################################
+# Initialize the ciphers used for encryption on the local machine
+####################################################################
 def init_crypt(password_bytes, salt):
     global _fernet, _kdf
 
@@ -58,10 +74,20 @@ def init_crypt(password_bytes, salt):
 
     _fernet = Fernet(base64.urlsafe_b64encode(_kdf.derive(password_bytes)))
 
+
+####################################################################
+# Takes in a message
+# Returns encrypted message and mac
+####################################################################
 @requires_fernet
 def encrypt_fernet(message):
     return _fernet.encrypt(message.encode())
 
+
+####################################################################
+# Takes in an encrypted message
+# Returns the decrypted message after verifying mac
+####################################################################
 @requires_fernet
 def decrypt_fernet(message):
     return _fernet.decrypt(message)
@@ -69,11 +95,11 @@ def decrypt_fernet(message):
 
 
 
-######################
+################################################
 # NETWORK SECURITY FUNCTIONS
 # USED FOR TUNNELING AUTHENTICATION SIGNATURES
 # NOT USED FOR BASE LOCAL MACHINE ENCRYPTION
-# ####################
+################################################
 
 
 from Crypto.Hash import SHA3_512
@@ -86,12 +112,12 @@ from Crypto.Signature import pkcs1_15
 
 RSA_KEY_FILE = "rsa.pem"
 
-#####################################
+###################################################
 # Grabs the RSA public and private keys from file
 # Returns:
 #   public key      - bytes
 #   private key     - bytes
-#####################################
+###################################################
 def read_keys_from_file() -> tuple[bytes, bytes]:
     with open(RSA_KEY_FILE, "rb") as file:
         priv_key = RSA.import_key(file.read())
@@ -100,12 +126,12 @@ def read_keys_from_file() -> tuple[bytes, bytes]:
     return priv_key.export_key(), pub_key.export_key()
 
 
-#####################################
+###################################################
 # Generates the RSA public and private keys
 # Returns:
 #   public key      - bytes
 #   private key     - bytes
-#####################################
+###################################################
 def generate_rsa_keys() -> tuple[bytes, bytes]:
     priv_key = RSA.generate(4096)
     pub_key = priv_key.public_key()
@@ -116,7 +142,7 @@ def generate_rsa_keys() -> tuple[bytes, bytes]:
     return priv_key.export_key(), pub_key.export_key()
 
 
-#########################################################
+###################################################################
 # Takes a rsa_public_key      - bytes
 # Takes a message to encrypt -  bytes  - used later for signing
 # Returns:
@@ -124,7 +150,7 @@ def generate_rsa_keys() -> tuple[bytes, bytes]:
 #   nonce                 - 16 bytes
 #   tag                   - 16 bytes
 #   ciphertext            - Unknown bytes
-#########################################################
+###################################################################
 def encrypt_generate_aes_secrets(rsa_pub_key: bytes, data: bytes) -> tuple[bytes, bytes, bytes, bytes, bytes]:
     session_key = get_random_bytes(16)
 
@@ -274,7 +300,7 @@ def decrypt_aes(session_key: bytes, data: bytes) -> bytes:
 
 # M2: Receive hash and signature
 # M2: Verify hash and signature against previously sent message
-#:if verify_signature(pub, b"I am Boh Mingle", hash, signature):
+#:if verify_signature(pub, b"I am Boh Mingle", signature):
 #:    print("Signature Valid -- Person Fully Authed")
 #: else:
 #:     print("Signature Invalid -- Person Not Authed")

@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+from pathlib import Path
 import sys
 from network import startup_network
 from util import login_user, read_all_contacts_from_file, user_exists, register_user, write_contacts_to_file
@@ -21,12 +22,21 @@ commands = {
     "exit": [lambda: 0, "Exits the Secure Drop Application"]
 }
 
+
+###############################################
+# Main startup function
+# Logs in user if they exist otherwise quit
+###############################################
 if user_exists():
     if login_user(USER_INFO):
         # on login setup
         logged_in.set()
         startup_network(USER_INFO, network_threads) # send out my payload
         read_all_contacts_from_file()
+
+        folder_path = Path("Data")
+        folder_path.mkdir(exist_ok=True)
+        print("Data folder created")
 
         print("User logged in")
         print("Welcome to Secure Drop")
@@ -44,6 +54,9 @@ else:
         sys.exit(1)
 
 
+################################################################
+# Main loop checks that thread safe event has been triggered
+################################################################
 while logged_in.is_set():
     command = input(">")
 
@@ -65,7 +78,11 @@ while logged_in.is_set():
 
 
 
+# When we are exisiting
+
+# Write added people back to file
 write_contacts_to_file()
 
+# Wrap up threads
 for thread in network_threads:
     thread.join()

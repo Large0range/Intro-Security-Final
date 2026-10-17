@@ -1,10 +1,7 @@
-__pycache__/
-bin/*
-lib/*
+__pycache__/*
 demos/*
-lib64/*
-include/*
-lib64
 .venv/*
+data/*
+
 *.bin
 *.pem

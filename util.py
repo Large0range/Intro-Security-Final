@@ -6,13 +6,25 @@ from security import decrypt_fernet, encrypt_fernet, hash_password, init_crypt, 
 from state import ADDED_CONTACTS, FRIENDS
 
 
-
+# Storage files
 DATA_FILE = "user.bin"
 CONTACT_FILE = "contacts.bin"
 
+
+###################################################################
+# Check if user exists
+# Returns True if they do
+###################################################################
 def user_exists():
     return os.path.isfile(DATA_FILE)
 
+
+
+###################################################################
+# Register user, prompts for name email and password
+# Salts and initializes crypt
+# Writes to base data file
+###################################################################
 def register_user():
     name = input("Enter Full Name: ")
     email = input("Enter Email Address: ")
@@ -38,6 +50,11 @@ def register_user():
         print("Exiting Secure Drop")
 
 
+
+###################################################################
+# Login user, takes a dictionary of user information to output to
+# Reads base data file and writes to user info dictionary
+###################################################################
 def login_user(user_info):
     with open(DATA_FILE, "rb") as file:
         a = file.read().split(b'\n')
@@ -65,21 +82,35 @@ def login_user(user_info):
     return verify_password(password, data['password'].encode()) and email == data['email']
 
 
+
+###################################################################
+# Takes a name and email
+# Writes to the set of people we have added
+# -- prevents double add
+###################################################################
 def add_contact_to_dict(name, email):
     person = {"name": name, "email": email}
 
     ADDED_CONTACTS.add(json.dumps(person))
 
-def write_contacts_to_file(): # RE VISIT
+
+###################################################################
+# Writes encrypted friend data to a contact file
+###################################################################
+def write_contacts_to_file():
     writelines = []
     for contact in FRIENDS:
         writelines.append(encrypt_fernet(contact) + b'\n')
 
     with open(CONTACT_FILE, "wb") as file:
         file.writelines(writelines)
-        #file.write(encrypt_fernet(json.dumps(person))+b'\n')
 
 
+
+###################################################################
+# Reads all contacts from the friend file
+# Adds them to friend dictionary
+###################################################################
 def read_all_contacts_from_file():
     if not os.path.isfile(CONTACT_FILE):
         return
@@ -93,5 +124,8 @@ def read_all_contacts_from_file():
 
 
 
+###################################################################
+# Helper function decodes bytes and converts to dictionary
+###################################################################
 def convert_byte_to_json(bytestring):
     return json.loads(bytestring.decode().replace("\'", '\"'))
