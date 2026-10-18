@@ -50,7 +50,7 @@ P_NRESPOND = 0
 
 # Error receive protocol
 P_ERROR = 9
-P_REMOVE = 10
+P_REMOVE = 0
 
 # Default listener port
 DEFAULT_SERVER_PORT = 65432
@@ -260,7 +260,8 @@ def text_me_back_protocol():
                         random_output_to_console("Error sending message, maybe try again?", RED + BOLD)
 
                     if type == P_REMOVE:
-                        FRIENDS.remove(payload['data'])
+                        print(payload['data'], FRIENDS)
+                        FRIENDS.remove(json.dumps({'name': payload['name'], 'email': payload['email']}))
 
                     # Friend protocols
                     if type == P_PING and not is_friend:
