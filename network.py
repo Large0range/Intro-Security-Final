@@ -263,13 +263,10 @@ def text_me_back_protocol():
                         random_output_to_console("Error sending message, maybe try again?", RED + BOLD)
 
                     if type == P_REMOVE:
-                        try:
-                            FRIENDS.remove(json.dumps({'name': payload['name'], 'email': payload['email']}))
-                        except:
-                            print('already gone?')
+                        FRIENDS.remove(json.dumps({'name': payload['name'], 'email': payload['email']}))
+
                     # Friend protocols
                     if type == P_PING and not is_friend:
-                        print('removing friend')
                         server_queue.put({'type': P_REMOVE, 'data': USER_INFO, 'ip': addr[0]})
 
                     # Message protocol from friend

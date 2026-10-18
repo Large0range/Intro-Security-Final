@@ -6,7 +6,7 @@ logged_in = threading.Event();
 logged_in.clear()
 
 # Version of program
-VERSION = 2.0
+VERSION = 2.4
 
 
 # User and contact information
