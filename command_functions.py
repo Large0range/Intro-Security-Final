@@ -34,8 +34,9 @@ def list_contact():
 
     for string_entry in FRIENDS:
         entry = json.loads(string_entry)
-        if check_online(entry['name'], entry['email']):
-            print(f"  {color(f'{entry['name']:<10}', name_color(entry['name'], entry['email']))}  {color(f'{entry['email']:<20}', DIM)} { "* Online" if check_online(entry['name'], entry['email']) else "* Offline" }")
+        online = check_online(entry['name'], entry['email'])
+        if online:
+            print(f"  {color(f'{entry['name']:<10}', name_color(entry['name'], entry['email']))}  {color(f'{entry['email']:<20}', DIM)} { "* Online" if online else "* Offline" }")
             foundone = True         # at least one person is online, set to true - we don't need formatting fix
 
     # If we have contacts in friends but they are not online

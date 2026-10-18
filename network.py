@@ -109,7 +109,7 @@ def send_file(name, email, file_path):
 # -- Only happens if two are friends
 ####################################################
 def check_online(name, email):
-    return connect_to_friend(name, email, P_PING, P_NRESPOND, {})
+    return connect_to_friend(name, email, P_PING, P_NRESPOND, USER_INFO)
 
 
 ####################################################################
@@ -214,6 +214,9 @@ def text_me_back_protocol():
                         random_output_to_console("Error parsing data throwing out...", RED + BOLD)
                         continue
 
+                    with open("data.log", "a") as file:
+                        file.write(str(type) + " " + str(response) + " " + str(payload) + "\n")
+
                     try:
                         is_friend = json.dumps({'name': payload['name'], 'email': payload['email']}) in FRIENDS
                     except KeyError:
@@ -260,10 +263,13 @@ def text_me_back_protocol():
                         random_output_to_console("Error sending message, maybe try again?", RED + BOLD)
 
                     if type == P_REMOVE:
-                        FRIENDS.remove(json.dumps({'name': payload['name'], 'email': payload['email']}))
-
+                        try:
+                            FRIENDS.remove(json.dumps({'name': payload['name'], 'email': payload['email']}))
+                        except:
+                            print('already gone?')
                     # Friend protocols
                     if type == P_PING and not is_friend:
+                        print('removing friend')
                         server_queue.put({'type': P_REMOVE, 'data': USER_INFO, 'ip': addr[0]})
 
                     # Message protocol from friend
