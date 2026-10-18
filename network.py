@@ -74,7 +74,7 @@ print(sys.argv[1], sys.argv[2])
 # Tells other user we have added them and gives our user info
 ##########################
 def send_friend_request(name, email):
-    connect_to_user(name, email, P_REQUEST, P_NRESPOND, USER_INFO)
+    connect_to_friend(name, email, P_REQUEST, P_NRESPOND, USER_INFO)
 
 ####################################################
 # Takes other user's name and email and message
@@ -142,7 +142,7 @@ def connect_to_user(name, email, type, respond_code, payload):
 def connect_to_friend(name, email, type, respond_code, payload):
     try:
         # if name and email match then send payload -- prevents sending to wrong person with same name
-        if name + ':' + email in NAME_IP_TABLE and json.dumps({'name': name, 'email': email}) in FRIENDS:
+        if name + ':' + email in NAME_IP_TABLE :
             return send_to_host_encrypted(type, respond_code, payload, NAME_IP_TABLE[name + ':' + email])
     except KeyError:
         return False
@@ -260,7 +260,6 @@ def text_me_back_protocol():
                         random_output_to_console("Error sending message, maybe try again?", RED + BOLD)
 
                     if type == P_REMOVE:
-                        print(payload['data'], FRIENDS)
                         FRIENDS.remove(json.dumps({'name': payload['name'], 'email': payload['email']}))
 
                     # Friend protocols
