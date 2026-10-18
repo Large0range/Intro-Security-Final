@@ -1,3 +1,4 @@
+from ast import parse
 import json
 import os
 from pathlib import Path
@@ -46,6 +47,10 @@ P_RESPOND = 1
 # No require response for protocol
 P_NRESPOND = 0
 
+
+# Error receive protocol
+P_ERROR = 9
+P_REMOVE = 10
 
 # Default listener port
 DEFAULT_SERVER_PORT = 65432
@@ -104,7 +109,7 @@ def send_file(name, email, file_path):
 # -- Only happens if two are friends
 ####################################################
 def check_online(name, email):
-    return connect_to_user(name, email, P_PING, P_NRESPOND, {})
+    return connect_to_friend(name, email, P_PING, P_NRESPOND, {})
 
 
 ####################################################################
@@ -145,9 +150,9 @@ def connect_to_friend(name, email, type, respond_code, payload):
     return False
 
 
-#################################################
+#################################################################################
 # Startup a server that listens for all connections and recieves data from them
-#################################################
+#################################################################################
 def text_me_back_protocol():
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as server_socket:
 
@@ -185,11 +190,13 @@ def text_me_back_protocol():
                     if len(pull) == 4:
                         length = int.from_bytes(pull, 'little')
                         data = conn.recv(length)
-                    # data += pull
 
-                    # while len(pull) == 1024:
-                    #     pull = conn.recv(1024)
-                    #     data += pull
+
+                        if length != len(data):
+                            server_queue.put({'type': P_ERROR, 'data': {}, 'ip': addr[0]})
+                            continue
+
+
 
                     # break if connection terminated
                     if data == b'':
@@ -197,10 +204,20 @@ def text_me_back_protocol():
 
                     # parse the data received into protocol type, response code, and payload associated
                     try:
-                        type, response, payload = parse_bytes(data)
-                    except UnicodeDecodeError:
                         dec = decrypt_aes(IP_KEY_TABLE[addr[0]][1], data)
+                    except ValueError, KeyError:
+                        dec = data
+
+                    try:
                         type, response, payload = parse_bytes(dec)
+                    except ValueError:
+                        random_output_to_console("Error parsing data throwing out...", RED + BOLD)
+                        continue
+
+                    try:
+                        is_friend = json.dumps({'name': payload['name'], 'email': payload['email']}) in FRIENDS
+                    except KeyError:
+                        is_friend = False
 
                     # Special Protocol Types Require Server Action
 
@@ -239,14 +256,22 @@ def text_me_back_protocol():
                         if r_contact != "":
                             ADDED_CONTACTS.remove(r_contact)
 
+                    if type == P_ERROR:
+                        random_output_to_console("Error sending message, maybe try again?", RED + BOLD)
+
+                    if type == P_REMOVE:
+                        FRIENDS.remove(payload['data'])
+
+                    # Friend protocols
+                    if type == P_PING and not is_friend:
+                        server_queue.put({'type': P_REMOVE, 'data': USER_INFO, 'ip': addr[0]})
+
                     # Message protocol from friend
-                    if type == P_MESSAGE:
-                        print(f"{color(payload['name'], BOLD + name_color(payload['name'], payload['email']))} {color('<' + payload['email'] + '>', DIM)}")
-                        print("  " + payload['data'])
-                        print(">", end="", flush=True)
+                    if type == P_MESSAGE and is_friend:
+                        person_specific_output(payload['name'], payload['email'], payload['data'])
 
                     # File sending protocol
-                    if type == P_FILE:
+                    if type == P_FILE and is_friend:
                         # Decompress the bytes from the payload
                         bytedata = bytes.fromhex(payload['data'])
                         uncompressed = zlib.decompress(bytedata).decode()
@@ -255,6 +280,8 @@ def text_me_back_protocol():
                         full_path = Path(payload['file_path'])
                         with open('Data/' + full_path.name, "w") as file:
                             file.write(uncompressed)
+
+                        person_specific_output(payload['name'], payload['email'], "File" + full_path.name + " Received")
 
                     # if response code is 1 then response
                     if response == P_RESPOND:
@@ -326,6 +353,14 @@ def respond_to_dms():
             else:
                 output_to_console("Could Not Verify Hash", RED + BOLD)
 
+
+        # If we did not receive all the bytes tell the sender
+        if item['type'] == P_ERROR:
+            send_to_host_encrypted(P_ERROR, P_NRESPOND, {}, item['ip'])
+
+        if item['type'] == P_REMOVE:
+            send_to_host_encrypted(P_REMOVE, P_NRESPOND, item['data'], item['ip'])
+
         # Mark queue item as finished
         server_queue.task_done()
 
@@ -377,13 +412,14 @@ def transmit_payload(info: bytes, host: str):
     # socket.AF_INET specifies IPv4, socket.SOCK_STREAM specifies TCP
     with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as client_socket:
         try:
+            client_socket.settimeout(1)
             client_socket.connect((server_host, DEFAULT_SERVER_PORT))
 
             client_socket.sendall(len(info).to_bytes(4, 'little'))
 
             client_socket.sendall(info)
 
-        except ConnectionRefusedError:
+        except ConnectionRefusedError, TimeoutError:
             return False
 
 
@@ -417,6 +453,7 @@ def startup_network(info, network_threads):
 
     for ip in IPS:
         send_to_host(P_MYKEY, P_RESPOND, {"version": VERSION, "key": pub.hex()}, ip)
+
 
     network_threads.append(server_thread)
     network_threads.append(response_thread)

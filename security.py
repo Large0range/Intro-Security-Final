@@ -269,10 +269,7 @@ def decrypt_aes(session_key: bytes, data: bytes) -> bytes:
 
     cipher_aes = AES.new(session_key, AES.MODE_EAX, nonce)
 
-    try:
-        return cipher_aes.decrypt_and_verify(ciphertext, tag)
-    except ValueError:
-        return b""
+    return cipher_aes.decrypt_and_verify(ciphertext, tag)
 
 
 # CODE EXAMPLE

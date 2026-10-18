@@ -49,3 +49,22 @@ def name_color(name, email):
 ###################################################################
 def output_to_console(message, text_color):
     print(f"{color(message, text_color)}")
+
+
+###################################################################
+# Takes a message and a desired color for message
+# Correctly outputs to the console -- used for random errors
+###################################################################
+def random_output_to_console(message, text_color):
+    print(f"\r{color(message, text_color)}")
+    print(">", end="", flush=True)
+
+
+###################################################################
+# Takes a message and a desired color for message
+# Correctly outputs to the console
+###################################################################
+def person_specific_output(name, email, message):
+    print(f"\n{color(name, BOLD + name_color(name, email))} {color('<' + email + '>', DIM)}")
+    print("  " + message)
+    print(">", end="", flush=True)
